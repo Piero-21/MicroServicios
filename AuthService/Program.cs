@@ -1,5 +1,7 @@
-using AuthService.Data;
+﻿using AuthService.Data;
 using AuthService.Models;
+using AuthService.Service;
+using AuthService.Service.IService;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -36,12 +38,38 @@ builder.Services.AddAuthentication(options =>
     };
 });
 // Add services to the container.
+builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<IAuthService, AuthService.Service.AuthService>();
+
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("https://localhost:5173", "https://192.168.0.102:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    var certPath = Path.Combine(Directory.GetCurrentDirectory(), "cert", "localhost.pfx");
+    options.ListenLocalhost(5002, listenOptions =>
+    {
+        listenOptions.UseHttps(certPath, "");
+    });
+});
+
+
 
 var app = builder.Build();
 
@@ -52,8 +80,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else
+{
+}
 
 app.UseHttpsRedirection();
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -20,10 +20,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Models\Dtos\" />
     <Folder Include="AuthMapper\" />
     <Folder Include="Repository\IRepository\" />
-    <Folder Include="Service\IService\" />
   </ItemGroup>
 
 </Project>

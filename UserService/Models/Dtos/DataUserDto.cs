@@ -8,6 +8,6 @@ namespace UserService.Models.Dtos
         public string Nombre { get; set; } 
         [Required(ErrorMessage = "El campo {0} es obligatorio.")]
         public string Apellido { get; set; } 
-        public string? Correo { get; set; }
+        public string? Email { get; set; }
     }
 }

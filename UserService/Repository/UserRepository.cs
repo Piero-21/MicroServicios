@@ -21,14 +21,14 @@ namespace UserService.Repository
 
         public async Task<IEnumerable<User>> GetAllAsync()
         {
-            return await _dbConnection.QueryAsync<User>("SELECT * FROM Users");
+            return await _dbConnection.QueryAsync<User>("SELECT * FROM Users WHERE Deleted = 0");
         }
 
         public async Task<bool> AddAsync(User user)
         {
             var sql = @"
-                        INSERT INTO Users (Id, Nombre, Apellido, Correo) 
-                        VALUES (@Id, @Nombre, @Apellido, @Correo);";
+                        INSERT INTO Users (Id, Nombre, Apellido, Email, Deleted) 
+                        VALUES (@Id, @Nombre, @Apellido, @Email, @Deleted);";
 
             return await _dbConnection.ExecuteAsync(sql, user) > 0;
         }
@@ -36,7 +36,7 @@ namespace UserService.Repository
 
         public async Task<User?> GetAsync(string id)
         {
-            var sql = "SELECT * FROM Users WHERE Id = @Id";
+            var sql = "SELECT * FROM Users WHERE Id = @Id AND Deleted = 0";
             return await _dbConnection.QueryFirstOrDefaultAsync<User>(sql, new { Id = id });
         }
 
@@ -44,13 +44,13 @@ namespace UserService.Repository
         {
             var userToUpdate = _mapper.Map<User>(user);
             userToUpdate.Id = id;
-            var sql = "UPDATE Users SET Nombre = @Nombre, Apellido = @Apellido, Correo = @Correo WHERE Id = @Id";
+            var sql = "UPDATE Users SET Nombre = @Nombre, Apellido = @Apellido, Correo = @Correo WHERE Id = @Id AND Deleted = 0";
             return await _dbConnection.ExecuteAsync(sql, userToUpdate) > 0;
         }
 
         public async Task<bool> DeleteAsync(string id)
         {
-            var sql = "DELETE FROM Users WHERE Id = @Id";
+            var sql = "UPDATE Users SET Deleted = 1 WHERE Id = @Id AND Deleted = 0";
             return await _dbConnection.ExecuteAsync(sql, new { Id = id }) > 0;
         }
     }

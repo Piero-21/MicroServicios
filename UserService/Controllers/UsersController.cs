@@ -1,5 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using TallerApi.Models;
 using UserService.Models;
 using UserService.Models.Dtos;
@@ -15,11 +18,13 @@ namespace UserService.Controllers
     {
         private readonly IUserRepository _repo;
         protected ResponseApi _responseApi;
+        private readonly IMapper _mapper;
 
-        public UsersController(IUserRepository repo)
+        public UsersController(IUserRepository repo, IMapper mapper)
         {
             _repo = repo;
             _responseApi = new();
+            _mapper = mapper;
         }
 
         [HttpGet]
@@ -37,7 +42,7 @@ namespace UserService.Controllers
                     _responseApi.ErrorMessages.Add("No se encontraron usuarios");
                     return NotFound(_responseApi);
                 }
-                _responseApi.Result = users;
+                _responseApi.Result = _mapper.Map<List<DataUserDto>>(users);
             }
             catch (Exception ex)
             {
@@ -62,7 +67,7 @@ namespace UserService.Controllers
                     _responseApi.ErrorMessages.Add("Usuario no encontrado");
                     return NotFound(_responseApi);
                 }
-                _responseApi.Result = user;
+                _responseApi.Result = _mapper.Map<DataUserDto>(user);
             }
             catch (Exception)
             {
@@ -74,7 +79,7 @@ namespace UserService.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Post([FromBody] User user)
+        public async Task<IActionResult> Post([FromBody] RegisterUserDto user)
         {
             string userId = string.Empty;
             try
@@ -88,14 +93,25 @@ namespace UserService.Controllers
                     _responseApi.ErrorMessages.Add("Datos del usuario no válidos");
                     return BadRequest(_responseApi);
                 }
-                if (!await _repo.AddAsync(user))
+                var newUser = _mapper.Map<User>(user);
+                userId = User.Claims.FirstOrDefault(u => u.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    _responseApi.IsSuccess = false;
+                    _responseApi.StatusCode = System.Net.HttpStatusCode.Unauthorized;
+                    _responseApi.ErrorMessages.Add("Usuario no autenticado");
+                    return Unauthorized(_responseApi);
+                }
+                newUser.Id = userId;
+                newUser.Deleted = false;
+                if (!await _repo.AddAsync(newUser))
                 {
                     _responseApi.IsSuccess = false;
                     _responseApi.StatusCode = System.Net.HttpStatusCode.BadRequest;
                     _responseApi.ErrorMessages.Add("Error al agregar el usuario");
                     return BadRequest(_responseApi);
                 }
-                _responseApi.Result = "Usuario agregado correctamente";
+                _responseApi.Result = _mapper.Map<DataUserDto>(newUser);
             }
             catch (Exception ex)
             {
@@ -103,7 +119,7 @@ namespace UserService.Controllers
                 _responseApi.StatusCode = System.Net.HttpStatusCode.InternalServerError;
                 _responseApi.ErrorMessages.Add("Error al agregar el usuario");
             }
-            return _responseApi.IsSuccess ? CreatedAtAction(nameof(GetById), userId,_responseApi) : StatusCode(500, _responseApi);
+            return _responseApi.IsSuccess ? CreatedAtAction(nameof(GetById), new { id = userId }, _responseApi) : StatusCode(500, _responseApi);
         }
 
         [HttpPut("{id}")]
@@ -149,16 +165,40 @@ namespace UserService.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
-            if (string.IsNullOrEmpty(id))
+            try
             {
-                return BadRequest("ID de usuario no válido");
+                _responseApi.IsSuccess = true;
+                _responseApi.StatusCode = System.Net.HttpStatusCode.OK;
+                if (string.IsNullOrEmpty(id))
+                {
+                    _responseApi.IsSuccess = false;
+                    _responseApi.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                    _responseApi.ErrorMessages.Add("Id de usuario no válido");
+                    return BadRequest(_responseApi);
+                }
+                var existingUser = await _repo.GetAsync(id);
+                if (existingUser == null)
+                {
+                    _responseApi.IsSuccess = false;
+                    _responseApi.StatusCode = System.Net.HttpStatusCode.NotFound;
+                    _responseApi.ErrorMessages.Add("Usuario no encontrado");
+                    return NotFound(_responseApi);
+                }
+                if (!await _repo.DeleteAsync(id))
+                {
+                    _responseApi.IsSuccess = false;
+                    _responseApi.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                    _responseApi.ErrorMessages.Add("Error al eliminar el usuario");
+                    return BadRequest(_responseApi);
+                }
             }
-            var user = await _repo.GetAsync(id);
-            if (user == null)
+            catch (Exception)
             {
-                return NotFound("Usuario no encontrado");
+                _responseApi.IsSuccess = false;
+                _responseApi.StatusCode = System.Net.HttpStatusCode.InternalServerError;
+                _responseApi.ErrorMessages.Add("Error al eliminar el usuario");
             }
-            return await _repo.DeleteAsync(id) ? Ok("Usuario eliminado") : BadRequest("Error al eliminar el usuario");
+            return _responseApi.IsSuccess ? Ok(_responseApi) : StatusCode(500, _responseApi);
         }
     }
 }
