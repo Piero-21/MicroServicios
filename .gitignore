@@ -366,3 +366,4 @@ FodyWeavers.xsd
 /AuthService/cert
 /AuthService/Properties/launchSettings.json
 /UserService/appsettings.json
+/UserService/Properties/launchSettings.json
